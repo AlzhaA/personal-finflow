@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Keuangan Bulanan - FinanceFlow</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <header class="navbar">
+        <div class="nav-brand">
+            <div class="brand-logo">📊</div>
+            <div>
+                <h1 class="brand-title">FinanceFlow</h1>
+                <span class="brand-subtitle">Laporan Keuangan & Insight Analitis</span>
+            </div>
+        </div>
+
+        <div class="nav-actions">
+            <div class="period-badge" id="activePeriodBadge">
+                <span class="badge-dot"></span>
+                <span id="periodText">Memuat Periode...</span>
+            </div>
+
+            <button id="btnLoadSample" class="btn btn-outline" title="Gunakan data contoh siap pakai">
+                📂 Muat Data Sampel
+            </button>
+
+            <button id="btnOpenUploadModal" class="btn btn-primary" title="Unggah file CSV baru">
+                ⬆️ Upload CSV
+            </button>
+
+            <button id="btnExportPDF" class="btn btn-success" title="Download Laporan PDF">
+                📄 Export PDF
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="app-layout">
+        <!-- Sidebar Filter -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>🔎 Filter Data</h3>
+                <button id="btnResetFilters" class="btn-text" title="Reset semua filter">Reset All</button>
+            </div>
+
+            <div class="filter-group">
+                <label for="filterTypeSelect">Kategori Filter:</label>
+                <div class="select-wrapper">
+                    <select id="filterTypeSelect" class="form-control">
+                        <option value="Bulan">🗓️ Bulan</option>
+                        <option value="Kategori">🏷️ Kategori</option>
+                        <option value="Jenis">🔄 Jenis Transaksi</option>
+                        <option value="Aset">🏦 Aset / Rekening</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button id="btnSelectAll" class="btn btn-xs btn-outline-success">Pilih Semua</button>
+                <button id="btnClearAll" class="btn btn-xs btn-outline-danger">Hapus Semua</button>
+            </div>
+
+            <!-- Checkbox List -->
+            <div class="checkbox-container" id="checkboxContainer">
+                <div class="loading-spinner">Memuat filter...</div>
+            </div>
+
+            <!-- Active Filters Summary Tag -->
+            <div class="active-filters-box" id="activeFiltersSummary">
+                <span class="text-muted">Semua filter aktif</span>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Content -->
+        <section class="content-area">
+            <!-- KPI Summary Cards -->
+            <div class="kpi-grid">
+                <!-- Card 1: Expense -->
+                <div class="kpi-card expense-card">
+                    <div class="kpi-icon">💰</div>
+                    <div class="kpi-details">
+                        <span class="kpi-label">Total Pengeluaran</span>
+                        <h2 class="kpi-value" id="kpiExpense">Rp 0</h2>
+                        <span class="kpi-subtext" id="kpiExpenseSub">0% dari pendapatan</span>
+                    </div>
+                </div>
+
+                <!-- Card 2: Income -->
+                <div class="kpi-card income-card">
+                    <div class="kpi-icon">💵</div>
+                    <div class="kpi-details">
+                        <span class="kpi-label">Total Pendapatan</span>
+                        <h2 class="kpi-value" id="kpiIncome">Rp 0</h2>
+                        <span class="kpi-subtext" id="kpiIncomeSub">Arus kas masuk</span>
+                    </div>
+                </div>
+
+                <!-- Card 3: Reimburse -->
+                <div class="kpi-card reimburse-card">
+                    <div class="kpi-icon">🔄</div>
+                    <div class="kpi-details">
+                        <span class="kpi-label">Reimbursement</span>
+                        <h2 class="kpi-value" id="kpiReimburse">Rp 0</h2>
+                        <span class="kpi-subtext">Klaim kantor / pihak lain</span>
+                    </div>
+                </div>
+
+                <!-- Card 4: Net Balance -->
+                <div class="kpi-card net-card">
+                    <div class="kpi-icon">💼</div>
+                    <div class="kpi-details">
+                        <span class="kpi-label">Saldo Bersih (Net)</span>
+                        <h2 class="kpi-value" id="kpiNet">Rp 0</h2>
+                        <span class="kpi-subtext" id="kpiNetSub">Income - Expense + Reimburse</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Insight Callout Banner -->
+            <div class="insight-banner" id="insightBanner">
+                <div class="insight-item">
+                    <span class="insight-title">📅 Hari Paling Boros</span>
+                    <span class="insight-value" id="insightHariBoros">-</span>
+                </div>
+                <div class="insight-divider"></div>
+                <div class="insight-item">
+                    <span class="insight-title">🏷️ Kategori Terbesar</span>
+                    <span class="insight-value" id="insightKategoriTerbesar">-</span>
+                </div>
+                <div class="insight-divider"></div>
+                <div class="insight-item">
+                    <span class="insight-title">💳 Transaksi Terbesar</span>
+                    <span class="insight-value" id="insightTrxTerbesar">-</span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="tab-insights" id="tabBtnInsights">
+                    📈 Insight & Visualisasi Grafik
+                </button>
+                <button class="tab-btn" data-tab="tab-table" id="tabBtnTable">
+                    📋 Data Transaksi (<span id="totalDataCount">0</span>)
+                </button>
+                <button class="tab-btn" data-tab="tab-compare" id="tabBtnCompare">
+                    📊 Perbandingan Antar Bulan (MoM)
+                </button>
+            </div>
+
+            <!-- TAB 1: VISUALISASI GRAFIK -->
+            <div class="tab-content active" id="tab-insights">
+                <div class="charts-grid">
+                    <!-- Chart 1: Top Hari Paling Boros -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>🔥 Top 7 Hari Paling Boros</h3>
+                            <span class="chart-tag">Pengeluaran</span>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chartTopDays"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: Top Kategori Pengeluaran -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>🏷️ Pengeluaran per Kategori</h3>
+                            <span class="chart-tag">Ranking</span>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chartCategories"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 3: Distribusi Cashflow -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>🥧 Komposisi Cashflow</h3>
+                            <span class="chart-tag">Proporsi</span>
+                        </div>
+                        <div class="chart-body chart-donut-wrapper">
+                            <canvas id="chartCashflow"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 4: Pengeluaran per Aset -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>🏦 Pengeluaran per Rekening / Aset</h3>
+                            <span class="chart-tag">Akun</span>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chartAssets"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 5: Trend Harian (Full Width) -->
+                    <div class="chart-card full-width">
+                        <div class="chart-header">
+                            <h3>📈 Trend Arus Kas Harian (Income vs Expense)</h3>
+                            <span class="chart-tag">Timeline</span>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chartTrend"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: TABEL DATA TRANSAKSI -->
+            <div class="tab-content" id="tab-table">
+                <div class="table-card">
+                    <!-- Table Toolbar -->
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="searchInput" placeholder="Cari tanggal, kategori, komentar, rekening..." class="form-control">
+                        </div>
+
+                        <div class="toolbar-controls">
+                            <div class="control-item">
+                                <label for="sortBySelect">Urutkan:</label>
+                                <select id="sortBySelect" class="form-control-sm">
+                                    <option value="Tanggal">Tanggal</option>
+                                    <option value="Jumlah">Jumlah</option>
+                                    <option value="Reimburse">Reimburse</option>
+                                    <option value="Expense">Pengeluaran</option>
+                                </select>
+                            </div>
+
+                            <div class="control-item">
+                                <button id="btnSortOrder" class="btn btn-sm btn-outline" title="Ubah urutan">
+                                    <span id="sortOrderLabel">⬇️ Terbaru / Terbesar</span>
+                                </button>
+                            </div>
+
+                            <div class="control-item">
+                                <label for="perPageSelect">Tampilkan:</label>
+                                <select id="perPageSelect" class="form-control-sm">
+                                    <option value="10">10</option>
+                                    <option value="25" selected>25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Responsive Table -->
+                    <div class="table-responsive">
+                        <table class="data-table" id="transactionTable">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal & Waktu</th>
+                                    <th>Kategori</th>
+                                    <th>Jenis</th>
+                                    <th class="text-right">Jumlah</th>
+                                    <th>Rekening/Aset</th>
+                                    <th class="text-right">Reimburse</th>
+                                    <th>Komentar / Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">Memuat data transaksi...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table Footer & Pagination -->
+                    <div class="table-footer">
+                        <div class="pagination-info" id="paginationInfo">
+                            Menampilkan 0 - 0 dari 0 data
+                        </div>
+                        <div class="pagination-buttons">
+                            <button id="btnPrevPage" class="btn btn-sm btn-outline">⬅️ Prev</button>
+                            <span class="page-indicator" id="pageIndicator">Hal 1 / 1</span>
+                            <button id="btnNextPage" class="btn btn-sm btn-outline">Next ➡</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: PERBANDINGAN ANTAR BULAN -->
+            <div class="tab-content" id="tab-compare">
+                <div class="compare-card">
+                    <div class="compare-header">
+                        <div>
+                            <h3 id="compareTitle">Perbandingan Kategori: Bulan Aktif vs Bulan Lalu</h3>
+                            <p class="text-muted" id="compareSubtitle">Menganalisis kenaikan atau penurunan pengeluaran per kategori</p>
+                        </div>
+                    </div>
+
+                    <div class="compare-grid">
+                        <div class="compare-chart-box">
+                            <canvas id="chartComparison"></canvas>
+                        </div>
+                        <div class="compare-table-box">
+                            <table class="data-table" id="compareTable">
+                                <thead>
+                                    <tr>
+                                        <th>Kategori</th>
+                                        <th class="text-right" id="thCurMonth">Bulan Ini</th>
+                                        <th class="text-right" id="thPrevMonth">Bulan Lalu</th>
+                                        <th class="text-right">Selisih</th>
+                                        <th class="text-right">Perubahan (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="compareTableBody">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Upload CSV Modal -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📤 Upload File CSV Transaksi</h3>
+                <button class="modal-close" id="btnCloseUploadModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-icon">📁</div>
+                    <p class="dropzone-title">Seret file CSV ke sini atau klik untuk memilih file</p>
+                    <p class="dropzone-subtitle">Mendukung format kolom: Tanggal, Kategori, Jenis, Jumlah, Aset, Reimburse, Komentar</p>
+                    <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+                </div>
+                <div class="selected-file-info" id="selectedFileInfo" style="display:none;">
+                    <span class="file-name" id="selectedFileName">transaksi.csv</span>
+                    <button class="btn btn-xs btn-danger" id="btnRemoveSelectedFile">Hapus</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btnCancelUpload">Batal</button>
+                <button class="btn btn-primary" id="btnSubmitUpload" disabled>Mulai Proses CSV</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Screen / Spinner Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-box">
+            <div class="spinner"></div>
+            <p id="loadingMessage">Memproses data...</p>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <span id="toastMessage">Pemberitahuan</span>
+    </div>
+
+    <!-- Custom Script -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
