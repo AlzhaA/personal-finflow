@@ -17,9 +17,43 @@
 
 ## 📖 Tentang Proyek (Overview)
 
-**FinanceFlow (`personal-finflow`)** adalah aplikasi web analitik keuangan pribadi (*self-hosted personal finance dashboard*) yang dirancang untuk memberikan transparansi penuh terhadap arus kas (*cashflow*), kebiasaan belanja, dan kesehatan finansial bulanan.
+**FinanceFlow (`personal-finflow`)** adalah aplikasi web analitik dan visualisasi keuangan pribadi (*self-hosted personal finance dashboard & reporting engine*) yang dirancang untuk memberikan transparansi penuh terhadap arus kas (*cashflow*), kebiasaan belanja, dan kesehatan finansial bulanan.
 
-Proyek ini dibangun berangkat dari **kebutuhan nyata pribadi** untuk memiliki sistem pelacakan pengeluaran yang tidak hanya mencatat transaksi, melainkan mampu memproses data mentah CSV, mengidentifikasi anomali pengeluaran (hari paling boros, kategori dominan), membandingkan performa antar-bulan (*Month-over-Month*), serta menghasilkan laporan PDF profesional siap cetak secara instan.
+Aplikasi ini **bukan tempat untuk mencatat transaksi harian dari nol**, melainkan sebuah **mesin analitik & pelaporan otomatis**. Proyek ini lahir dari kebutuhan nyata pribadi untuk mengolah data ekspor transaksi mentah (berformat CSV) yang dicatat melalui aplikasi pelacak pengeluaran di smartphone (seperti **[Meow Money Manager & Tracker](https://play.google.com/store/apps/details?id=com.financial.wallet)** di Google Play Store) atau pencatatan spreadsheet Excel pribadi, kemudian mengubahnya menjadi:
+1. **Dashboard Interaktif**: Visualisasi grafik dinamis, rasio pengeluaran, deteksi anomali (*hari paling boros*, *transaksi terbesar*), dan sebaran aset/rekening.
+2. **Analisis Komparasi Bulanan (MoM)**: Evaluasi naik-turun alokasi belanja dibanding bulan lalu.
+3. **Automasi Laporan PDF (ReportLab)**: Menghasilkan arsip dokumen keuangan A4 profesional multi-halaman siap cetak dalam satu klik.
+
+---
+
+## 📋 Format & Struktur Data CSV (Data Specification)
+
+Agar aplikasi dapat memproses data dengan benar, file CSV yang diunggah harus mengikuti skema header berikut (sesuai format bawaan hasil ekspor aplikasi *Meow Money Manager* atau file CSV/Excel buatan sendiri):
+
+```csv
+"Tanggal","Kategori","Jenis","Jumlah","Aset","Buku besar","Reimburse","Komentar"
+"Agu 31 2026 21:37","Makanan","Pengeluaran","-16000","BCA","Bawaan","","Bakso"
+"Agu 31 2026 07:48","Makanan","Pengeluaran","-30000","BCA","Bawaan","+20000","Makan siang"
+"Agu 22 2026 15:19","","Transfer","21000","Mandiri -> Emoney","Bawaan","",""
+"Agu 08 2026 20:49","Uang Jajan","Pendapatan","+10000000","BCA","Bawaan","",""
+```
+
+### Rincian Kolom CSV:
+
+| Nama Kolom | Tipe Data | Contoh Nilai | Keterangan & Format |
+| :--- | :--- | :--- | :--- |
+| **`Tanggal`** | String / DateTime | `"Agu 31 2026 21:37"` | Format tanggal & jam. Parser mendukung singkatan bulan bahasa Indonesia (`Jan`, `Feb`, `Mar`, `Apr`, `Mei`, `Jun`, `Jul`, `Agu`, `Sep`, `Okt`, `Nov`, `Des`). |
+| **`Kategori`** | String | `"Makanan"`, `"Belanja"` | Kategori pengeluaran/pendapatan (dapat dikosongkan pada transaksi mutasi internal/transfer). |
+| **`Jenis`** | Enum / String | `"Pengeluaran"`, `"Pendapatan"`, `"Transfer"` | Klasifikasi arus transaksi. |
+| **`Jumlah`** | Integer / String | `"-16000"`, `"+4250000"` | Nominal transaksi. Nilai minus (`-`) untuk beban/expense, nilai plus (`+`) untuk income. |
+| **`Aset`** | String | `"BCA"`, `"Mandiri"`, `"Mandiri -> Emoney"` | Sumber dana, rekening bank, e-wallet, atau rute transfer saldo antar-rekening. |
+| **`Buku besar`** | String | `"Bawaan"` | Nama buku kas / ledger (opsional/informasional). |
+| **`Reimburse`** | String (Opsional) | `"+20000"`, `""` | Nominal pengeluaran yang diklaim/diganti oleh kantor atau pihak lain. |
+| **`Komentar`** | String (Opsional) | `"Bakso"`, `"Token listrik"` | Catatan / deskripsi rincian keperluan transaksi. |
+
+> 💡 **Tips Penggunaan Data:**
+> * Jika menggunakan aplikasi **Meow Money Manager & Tracker**, Anda cukup masuk ke menu *Pengaturan / Backup* > *Ekspor ke CSV*, lalu langsung unggah file hasilnya ke FinanceFlow.
+> * Jika mengelola pencatatan secara manual di Excel atau Google Sheets, simpan (*Save As*) ke format `.csv` dengan susunan kolom di atas.
 
 ---
 
@@ -51,9 +85,8 @@ Proyek ini dibangun berangkat dari **kebutuhan nyata pribadi** untuk memiliki si
 * Layout tabular dan visual yang rapi untuk arsip finansial bulanan pribadi.
 
 ### 6. 📂 Smart CSV Ingestion
-* Dukungan *drag-and-drop* file CSV baru kapan saja.
-* *Date-parser engine* yang fleksibel, mendukung penamaan bulan bahasa Indonesia (`Mei`, `Agu`, `Okt`, `Des`, dll.).
-* Dilengkapi dataset bawaan (`sample_transaksi.csv`) untuk pengujian langsung.
+* Dukungan *drag-and-drop* file CSV baru kapan saja tanpa reload server.
+* Dilengkapi dataset bawaan (`sample_transaksi.csv`) untuk langsung mencoba seluruh fitur.
 
 ---
 
