@@ -216,18 +216,39 @@ def api_export_pdf():
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Gagal membuat PDF: {str(e)}'}), 500
 
-def open_browser():
-    """Membuka browser otomatis saat aplikasi dijalankan"""
-    webbrowser.open_new_tab("http://127.0.0.1:5000")
+def start_server():
+    """Menjalankan server Flask di background thread"""
+    app.run(host='127.0.0.1', port=5000, debug=False, threaded=True)
 
 if __name__ == '__main__':
     print("=" * 60)
     print(" [FINANCEFLOW] APLIKASI LAPORAN KEUANGAN BULANAN")
     print("=" * 60)
-    print(" [URL] Server berjalan di: http://127.0.0.1:5000")
-    print(" [INFO] Tekan CTRL+C di terminal untuk menghentikan server.")
-    print("=" * 60)
 
-    threading.Timer(1.2, open_browser).start()
+    try:
+        import webview
+        print(" [INFO] Membuka jendela desktop FinanceFlow...")
+        print(" [INFO] Menutup jendela (klik X) akan keluar dari aplikasi secara otomatis.")
+        print("=" * 60)
 
-    app.run(host='127.0.0.1', port=5000, debug=False)
+        # Jalankan server Flask di thread background (daemon)
+        server_thread = threading.Thread(target=start_server, daemon=True)
+        server_thread.start()
+
+        # Buka jendela aplikasi desktop mandiri
+        window = webview.create_window(
+            title="FinanceFlow - Laporan Keuangan Bulanan",
+            url="http://127.0.0.1:5000",
+            width=1280,
+            height=850,
+            min_size=(960, 600),
+            text_select=True
+        )
+        webview.start()
+
+    except ImportError:
+        print(" [WARN] pywebview tidak ditemukan, membuka di browser...")
+        print(" [URL]  http://127.0.0.1:5000")
+        print("=" * 60)
+        threading.Timer(1.2, lambda: webbrowser.open("http://127.0.0.1:5000")).start()
+        app.run(host='127.0.0.1', port=5000, debug=False)
