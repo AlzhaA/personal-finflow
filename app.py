@@ -207,14 +207,30 @@ def api_export_pdf():
 
         build_pdf_report(df_filtered, CURRENT_DF, output_pdf_path)
 
-        return send_file(
-            output_pdf_path,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=pdf_filename
-        )
+        # Otomatis buka file PDF di pembaca PDF default & buka folder explorer
+        try:
+            os.startfile(output_pdf_path)
+        except Exception as open_err:
+            print(f"[WARN] Gagal membuka PDF otomatis: {open_err}")
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Laporan PDF berhasil dibuat!',
+            'filename': pdf_filename,
+            'file_path': output_pdf_path,
+            'folder_path': OUTPUT_DIR
+        })
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Gagal membuat PDF: {str(e)}'}), 500
+
+@app.route('/api/open_folder', methods=['POST'])
+def api_open_folder():
+    """Membuka folder exports di File Explorer"""
+    try:
+        os.startfile(OUTPUT_DIR)
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 def start_server():
     """Menjalankan server Flask di background thread"""

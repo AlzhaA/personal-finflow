@@ -797,22 +797,39 @@ async function exportPDF() {
             body: JSON.stringify(payload)
         });
 
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.message || 'Gagal membuat PDF');
+        const result = await res.json();
+        if (!res.ok || result.status !== 'success') {
+            throw new Error(result.message || 'Gagal membuat PDF');
         }
 
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Laporan_Keuangan_${new Date().toISOString().slice(0, 10)}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+        const msgHtml = `
+            <div style="line-height: 1.4;">
+                <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <span>📄</span> <span>File Berhasil Diunduh!</span>
+                </div>
+                <div style="font-size: 0.8rem; color: #94a3b8; word-break: break-all; margin-bottom: 6px;">
+                    📁 <b>Lokasi:</b> ${result.folder_path}\\<b>${result.filename}</b>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <button id="btnOpenFolderToast" style="background: #3b82f6; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
+                        📂 Buka Folder
+                    </button>
+                </div>
+            </div>
+        `;
 
-        showToast("Laporan PDF berhasil diunduh!");
+        showToast(msgHtml, false, 7000);
+
+        // Pasang event listener untuk tombol buka folder di toast
+        setTimeout(() => {
+            const btnOpen = document.getElementById('btnOpenFolderToast');
+            if (btnOpen) {
+                btnOpen.onclick = async () => {
+                    await fetch('/api/open_folder', { method: 'POST' });
+                };
+            }
+        }, 100);
+
     } catch (err) {
         showToast(err.message, true);
     } finally {
@@ -832,11 +849,20 @@ function hideLoading() {
     elements.loadingOverlay.classList.remove('active');
 }
 
-function showToast(msg, isError = false) {
-    elements.toastMessage.textContent = msg;
+function showToast(content, isError = false, duration = 4000) {
+    if (typeof content === 'string' && content.includes('<')) {
+        elements.toastMessage.innerHTML = content;
+    } else {
+        elements.toastMessage.textContent = content;
+    }
     elements.toast.style.background = isError ? '#ef4444' : '#1e293b';
     elements.toast.classList.add('active');
-    setTimeout(() => {
+
+    if (window._toastTimeout) {
+        clearTimeout(window._toastTimeout);
+    }
+
+    window._toastTimeout = setTimeout(() => {
         elements.toast.classList.remove('active');
-    }, 3500);
+    }, duration);
 }
