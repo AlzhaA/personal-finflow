@@ -100,7 +100,18 @@ const elements = {
     loadingOverlay: document.getElementById('loadingOverlay'),
     loadingMessage: document.getElementById('loadingMessage'),
     toast: document.getElementById('toast'),
-    toastMessage: document.getElementById('toastMessage')
+    toastMessage: document.getElementById('toastMessage'),
+
+    // AI Advisor Sidebar
+    btnToggleAiSidebar: document.getElementById('btnToggleAiSidebar'),
+    btnCloseAiSidebar: document.getElementById('btnCloseAiSidebar'),
+    aiSidebar: document.getElementById('aiSidebar'),
+    aiSidebarBackdrop: document.getElementById('aiSidebarBackdrop'),
+    aiChatBody: document.getElementById('aiChatBody'),
+    aiChatForm: document.getElementById('aiChatForm'),
+    aiPromptInput: document.getElementById('aiPromptInput'),
+    btnSendAi: document.getElementById('btnSendAi'),
+    quickChips: document.querySelectorAll('.chip')
 };
 
 let uploadedFileObj = null;
@@ -294,6 +305,39 @@ function initEventListeners() {
     });
 
     elements.btnSubmitUpload.addEventListener('click', submitUploadFile);
+
+    // AI Advisor Sidebar Events
+    if (elements.btnToggleAiSidebar) {
+        elements.btnToggleAiSidebar.addEventListener('click', toggleAiSidebar);
+    }
+    if (elements.btnCloseAiSidebar) {
+        elements.btnCloseAiSidebar.addEventListener('click', closeAiSidebar);
+    }
+    if (elements.aiSidebarBackdrop) {
+        elements.aiSidebarBackdrop.addEventListener('click', closeAiSidebar);
+    }
+    if (elements.aiChatForm) {
+        elements.aiChatForm.addEventListener('submit', handleAiSubmit);
+    }
+    if (elements.aiPromptInput) {
+        elements.aiPromptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                elements.aiChatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    }
+    if (elements.quickChips) {
+        elements.quickChips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                const prompt = chip.getAttribute('data-prompt');
+                if (prompt && elements.aiPromptInput) {
+                    elements.aiPromptInput.value = prompt;
+                    elements.aiChatForm.dispatchEvent(new Event('submit'));
+                }
+            });
+        });
+    }
 }
 
 // ==========================================================================
@@ -865,4 +909,206 @@ function showToast(content, isError = false, duration = 4000) {
     window._toastTimeout = setTimeout(() => {
         elements.toast.classList.remove('active');
     }, duration);
+}
+
+// ==========================================================================
+// AI ADVISOR SIDEBAR LOGIC
+// ==========================================================================
+function toggleAiSidebar() {
+    if (!elements.aiSidebar) return;
+    const isActive = elements.aiSidebar.classList.contains('active');
+    if (isActive) {
+        closeAiSidebar();
+    } else {
+        openAiSidebar();
+    }
+}
+
+function openAiSidebar() {
+    if (!elements.aiSidebar) return;
+    elements.aiSidebar.classList.add('active');
+    if (elements.aiSidebarBackdrop) elements.aiSidebarBackdrop.classList.add('active');
+    if (elements.aiPromptInput) {
+        setTimeout(() => elements.aiPromptInput.focus(), 300);
+    }
+}
+
+function closeAiSidebar() {
+    if (!elements.aiSidebar) return;
+    elements.aiSidebar.classList.remove('active');
+    if (elements.aiSidebarBackdrop) elements.aiSidebarBackdrop.classList.remove('active');
+}
+
+async function handleAiSubmit(e) {
+    if (e) e.preventDefault();
+    const prompt = elements.aiPromptInput.value.trim();
+    if (!prompt) return;
+
+    // Tambahkan pesan user ke chat
+    appendChatMessage('user', prompt);
+    elements.aiPromptInput.value = '';
+    elements.btnSendAi.disabled = true;
+
+    // Tampilkan typing indicator
+    const typingElem = showAiTyping();
+
+    try {
+        const res = await fetch('/api/gemini_chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: prompt,
+                filters: state.selectedFilters
+            })
+        });
+
+        const data = await res.json();
+        removeAiTyping(typingElem);
+
+        if (data.status === 'success') {
+            appendChatMessage('bot', data.reply);
+        } else {
+            appendChatMessage('bot', `⚠️ <b>Error:</b> ${data.message}`);
+        }
+    } catch (err) {
+        removeAiTyping(typingElem);
+        appendChatMessage('bot', `⚠️ <b>Gagal terhubung:</b> ${err.message}`);
+    } finally {
+        elements.btnSendAi.disabled = false;
+        elements.aiPromptInput.focus();
+    }
+}
+
+function appendChatMessage(sender, text) {
+    if (!elements.aiChatBody) return;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `ai-msg ai-msg-${sender}`;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble';
+
+    if (sender === 'bot') {
+        bubble.innerHTML = formatMarkdown(text);
+    } else {
+        bubble.textContent = text;
+    }
+
+    msgDiv.appendChild(bubble);
+    elements.aiChatBody.appendChild(msgDiv);
+    elements.aiChatBody.scrollTop = elements.aiChatBody.scrollHeight;
+}
+
+function showAiTyping() {
+    if (!elements.aiChatBody) return null;
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'ai-msg ai-msg-bot';
+    typingDiv.id = 'aiTypingIndicator';
+    typingDiv.innerHTML = `
+        <div class="ai-typing-indicator">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+        </div>
+    `;
+    elements.aiChatBody.appendChild(typingDiv);
+    elements.aiChatBody.scrollTop = elements.aiChatBody.scrollHeight;
+    return typingDiv;
+}
+
+function removeAiTyping(elem) {
+    if (elem && elem.parentNode) {
+        elem.parentNode.removeChild(elem);
+    }
+}
+
+function formatMarkdown(text) {
+    if (!text) return '';
+
+    // 1. Amankan karakter HTML dasar
+    let lines = text.split(/\r?\n/);
+    let inList = false;
+    let inBlockquote = false;
+    let formattedLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        // Header Markdown: ### H3, #### H4, ## H2, # H1
+        const hMatch = line.match(/^(#{1,6})\s+(.*)$/);
+        if (hMatch) {
+            if (inList) { formattedLines.push('</ul>'); inList = false; }
+            if (inBlockquote) { formattedLines.push('</blockquote>'); inBlockquote = false; }
+            const level = hMatch[1].length;
+            const content = parseInline(hMatch[2]);
+            formattedLines.push(`<h${level} class="ai-h${level}">${content}</h${level}>`);
+            continue;
+        }
+
+        // Horizontal Line (--- atau ***)
+        if (/^\s*([*-]{3,})\s*$/.test(line)) {
+            if (inList) { formattedLines.push('</ul>'); inList = false; }
+            if (inBlockquote) { formattedLines.push('</blockquote>'); inBlockquote = false; }
+            formattedLines.push('<hr class="ai-divider">');
+            continue;
+        }
+
+        // Blockquote (> Teks)
+        const bqMatch = line.match(/^>\s?(.*)$/);
+        if (bqMatch) {
+            if (inList) { formattedLines.push('</ul>'); inList = false; }
+            if (!inBlockquote) {
+                formattedLines.push('<blockquote class="ai-blockquote">');
+                inBlockquote = true;
+            }
+            formattedLines.push(`<p>${parseInline(bqMatch[1])}</p>`);
+            continue;
+        } else if (inBlockquote) {
+            formattedLines.push('</blockquote>');
+            inBlockquote = false;
+        }
+
+        // Bullet List (- atau * atau •)
+        const listMatch = line.match(/^\s*[-*•]\s+(.*)$/);
+        if (listMatch) {
+            if (!inList) {
+                formattedLines.push('<ul class="ai-list">');
+                inList = true;
+            }
+            formattedLines.push(`<li>${parseInline(listMatch[1])}</li>`);
+            continue;
+        } else if (inList) {
+            formattedLines.push('</ul>');
+            inList = false;
+        }
+
+        // Baris kosong
+        if (!line.trim()) {
+            formattedLines.push('<div class="ai-gap"></div>');
+            continue;
+        }
+
+        // Baris teks biasa
+        formattedLines.push(`<p>${parseInline(line)}</p>`);
+    }
+
+    if (inList) formattedLines.push('</ul>');
+    if (inBlockquote) formattedLines.push('</blockquote>');
+
+    return formattedLines.join('');
+}
+
+function parseInline(str) {
+    let s = str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // Bold (**teks**)
+    s = s.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    // Italic (*teks*)
+    s = s.replace(/\*(.*?)\*/g, '<i>$1</i>');
+    // Inline Code (`teks`)
+    s = s.replace(/`([^`]+)`/g, '<code class="ai-code">$1</code>');
+
+    return s;
 }

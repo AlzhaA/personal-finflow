@@ -84,7 +84,13 @@ Agar aplikasi dapat memproses data dengan benar, file CSV yang diunggah harus me
 * Konversi seluruh ringkasan statistik, grafik beresolusi tinggi, tabel MoM, dan daftar rincian transaksi ke format **PDF A4 siap cetak multi-halaman**.
 * Layout tabular dan visual yang rapi untuk arsip finansial bulanan pribadi.
 
-### 6. 📂 Smart CSV Ingestion
+### 6. 🤖 Finflo AI Advisor (Powered by Google Gemini)
+* **Konsultan Keuangan Pribadi**: Panel asisten AI interaktif yang meluncur di samping dashboard.
+* **Analisis Data Real-Time**: Finflo otomatis membaca metrik, rasio belanja, dan rincian transaksi aktif di layar untuk menjawab pertanyaan Anda secara presisi.
+* **Perencana Anggaran Pintar**: Mampu membuat simulasi dan rekomendasi alokasi anggaran bulanan berikutnya (seperti metode 50/30/20 yang disesuaikan dengan kondisi riil).
+* **Persona Ramah & Solutif**: Gaya bahasa profesional, solutif, dan santai (Gen-Z vibe) untuk evaluasi keuangan tanpa rasa stres.
+
+### 7. 📂 Smart CSV Ingestion
 * Dukungan *drag-and-drop* file CSV baru kapan saja tanpa reload server.
 * Dilengkapi dataset bawaan (`sample_transaksi.csv`) untuk langsung mencoba seluruh fitur.
 
@@ -127,6 +133,12 @@ Eksplorasi seluruh baris transaksi lengkap dengan fitur pencarian, filter, dan p
 #### 4. Analisis Komparasi Antar-Bulan (MoM)
 Analisis kenaikan/penurunan pengeluaran per kategori dibanding bulan sebelumnya.
 ![MoM Comparison](docs/screenshots/04-mom-comparison.png)
+
+---
+
+#### 5. Finflo AI Advisor (Konsultan Keuangan Pribadi)
+Asisten AI cerdas di sidebar untuk menganalisis kebiasaan belanja, menjawab pertanyaan, dan merancang anggaran bulan depan.
+![Finflo AI Advisor](docs/screenshots/07-finflo-ai-advisor.png)
 
 ---
 
@@ -176,7 +188,23 @@ cd personal-finflow
 pip install -r requirements.txt
 ```
 
-### 4. Jalankan Aplikasi
+### 4. Konfigurasi Finflo AI Advisor (Opsional tapi Direkomendasikan ✨)
+Aplikasi ini dilengkapi dengan **Finflo AI Advisor (Google Gemini)** untuk menganalisis arus kas dan memberikan rekomendasi anggaran secara cerdas.
+Karena file `.env` berisi kunci pribadi dan diabaikan oleh Git (`.gitignore`), ikuti langkah mudah berikut:
+1. Salin file template `.env.example` menjadi `.env`:
+   * **Windows (PowerShell):** `copy .env.example .env`
+   * **Linux / macOS:** `cp .env.example .env`
+2. Dapatkan **Gemini API Key gratis** (100% Free Tier, tanpa kartu kredit):
+   * Kunjungi [Google AI Studio API Key](https://aistudio.google.com/apikey).
+   * Klik tombol **"Create API key"** lalu salin (*copy*) kodenya.
+3. Buka file `.env` di teks editor, lalu tempelkan kunci Anda:
+   ```env
+   GEMINI_API_KEY=AIzaSy...kunci_anda_disini...
+   GEMINI_MODEL=gemini-3.5-flash-lite
+   ```
+   *(Model default yang direkomendasikan adalah `gemini-3.5-flash-lite` karena responnya sangat cepat dan kuota gratisnya melimpah).*
+
+### 5. Jalankan Aplikasi
 
 #### ⚡ Opsi A: Menggunakan File Batch (Khusus Windows - 1 Klik)
 Cukup **klik ganda (double-click)** file:

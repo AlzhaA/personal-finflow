@@ -41,6 +41,11 @@
             <button id="btnExportPDF" class="btn btn-success" title="Download Laporan PDF">
                 📄 Export PDF
             </button>
+
+            <button id="btnToggleAiSidebar" class="btn btn-ai" title="Buka Asisten AI Finflo">
+                <img src="{{ url_for('static', filename='images/finflo-avatar.png') }}" alt="Finflo Logo" class="btn-ai-avatar">
+                <span>Tanya Finflo AI</span>
+            </button>
         </div>
     </header>
 
@@ -366,6 +371,50 @@
     <div class="toast" id="toast">
         <span id="toastMessage">Pemberitahuan</span>
     </div>
+
+    <!-- AI Advisor Sliding Sidebar -->
+    <div class="ai-sidebar-backdrop" id="aiSidebarBackdrop"></div>
+    <aside class="ai-sidebar" id="aiSidebar">
+        <div class="ai-sidebar-header">
+            <div class="ai-brand">
+                <div class="ai-badge-icon">
+                    <img src="{{ url_for('static', filename='images/finflo-avatar.png') }}" alt="Finflo Character" class="ai-header-avatar">
+                </div>
+                <div>
+                    <h3 class="ai-title">Finflo AI Advisor</h3>
+                    <span class="ai-subtitle">Powered by Google Gemini</span>
+                </div>
+            </div>
+            <button class="ai-close-btn" id="btnCloseAiSidebar" title="Tutup Panel">&times;</button>
+        </div>
+
+        <div class="ai-quick-prompts">
+            <span class="quick-title">💡 Pertanyaan Cepat:</span>
+            <div class="quick-chips">
+                <button class="chip" data-prompt="Tolong analisa kondisi keuangan dan rasio pengeluaran saya bulan ini.">📊 Analisa Bulan Ini</button>
+                <button class="chip" data-prompt="Berapa total pengeluaran untuk kontrakan, uang kas, dan travel?">🏠 Kontrakan, Kas & Travel</button>
+                <button class="chip" data-prompt="Buatkan rekomendasi anggaran untuk bulan depan agar saya bisa lebih hemat 15%.">🎯 Rekomendasi Budget</button>
+            </div>
+        </div>
+
+        <div class="ai-chat-body" id="aiChatBody">
+            <div class="ai-msg ai-msg-bot">
+                <div class="msg-bubble">
+                    👋 <b>Halo Alzha! Aku Finflo AI.</b><br>
+                    Aku bisa membaca data transaksi aktifmu secara <i>real-time</i>. Mau aku bantu hitung kategori tertentu, evaluasi kebiasaan jajan, atau susun budget bulan depan? Tanyakan saja apa saja! 💼✨
+                </div>
+            </div>
+        </div>
+
+        <div class="ai-chat-footer">
+            <form id="aiChatForm" class="ai-input-form">
+                <textarea id="aiPromptInput" class="ai-textarea" rows="2" placeholder="Tanya apa saja tentang data keuanganmu... (Tekan Enter untuk kirim)"></textarea>
+                <button type="submit" class="ai-send-btn" id="btnSendAi" title="Kirim Pesan">
+                    <span>➤</span>
+                </button>
+            </form>
+        </div>
+    </aside>
 
     <!-- Custom Script -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

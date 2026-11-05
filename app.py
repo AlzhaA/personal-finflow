@@ -6,6 +6,8 @@ Dijalankan dengan: python app.py
 
 import os
 import io
+import json
+import urllib.request
 import threading
 import webbrowser
 import pandas as pd
@@ -26,6 +28,19 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SAMPLE_CSV_PATH = os.path.join(BASE_DIR, 'sample_transaksi.csv')
 OUTPUT_DIR = os.path.join(BASE_DIR, 'exports')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Muat konfigurasi .env secara manual (tanpa perlu dependensi eksternal)
+ENV_PATH = os.path.join(BASE_DIR, '.env')
+if os.path.exists(ENV_PATH):
+    with open(ENV_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, val = line.split('=', 1)
+                os.environ[key.strip()] = val.strip()
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-flash-latest')
 
 app = Flask(
     __name__,
@@ -231,6 +246,107 @@ def api_open_folder():
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/gemini_chat', methods=['POST'])
+def api_gemini_chat():
+    """Endpoint integrasi Gemini AI Advisor dengan konteks keuangan real-time"""
+    global GEMINI_API_KEY, GEMINI_MODEL, CURRENT_DF
+
+    payload = request.get_json() or {}
+    user_prompt = payload.get('message', '').strip()
+    active_filters = payload.get('filters', {})
+
+    if not user_prompt:
+        return jsonify({'status': 'error', 'message': 'Pesan tidak boleh kosong.'}), 400
+
+    api_key = os.environ.get('GEMINI_API_KEY') or GEMINI_API_KEY
+    if not api_key or 'your_gemini' in api_key.lower():
+        return jsonify({
+            'status': 'error',
+            'message': 'Gemini API Key belum diatur di file .env. Silakan dapatkan API Key gratis di https://aistudio.google.com/apikey dan masukkan ke file .env.'
+        }), 400
+
+    # Buat ringkasan data keuangan aktif untuk diberikan ke Gemini
+    context_text = "Data transaksi saat ini belum dimuat."
+    if CURRENT_DF is not None and len(CURRENT_DF) > 0:
+        try:
+            df_filtered = apply_filters(CURRENT_DF, filters=active_filters)
+            metrics = calculate_core_metrics(df_filtered)
+            
+            # Hitung pengeluaran per kategori
+            df_exp = df_filtered[df_filtered['Expense'] > 0]
+            cat_series = df_exp.groupby('Kategori')['Expense'].sum().sort_values(ascending=False)
+            kategori_str = "\n".join([f"- {k}: Rp {format_idr(v)}" for k, v in cat_series.items()])
+
+            context_text = f"""
+[DATA KEUANGAN FINANCEFLOW SAAT INI]
+• Periode Analisis: {metrics.get('periode_text', 'Semua')}
+• Total Pemasukan (Income): Rp {format_idr(metrics.get('income', 0))}
+• Total Pengeluaran (Expense): Rp {format_idr(metrics.get('expense', 0))}
+• Sisa Saldo Bersih (Net Cashflow): Rp {format_idr(metrics.get('net', 0))}
+• Rasio Pengeluaran terhadap Pemasukan: {metrics.get('pct_expense', 0):.1f}%
+• Hari Paling Boros: {metrics.get('hari_terboros', '-')}
+• Kategori Terbesar: {metrics.get('kategori_terbesar', '-')}
+• Transaksi Tunggal Terbesar: {metrics.get('transaksi_terbesar_detail', '-')} (Rp {format_idr(metrics.get('transaksi_terbesar_val', 0))})
+
+[RINCIAN PENGELUARAN PER KATEGORI]
+{kategori_str if kategori_str else 'Belum ada pengeluaran'}
+""".strip()
+        except Exception as e:
+            context_text = f"Gagal mengekstrak konteks data: {str(e)}"
+
+    system_instruction = (
+        "Kamu adalah Finflo, asisten dan konsultan keuangan pribadi cerdas di aplikasi FinanceFlow milik Alzha. "
+        "Gaya bicaramu ramah, profesional, solutif, dan sedikit santai (Gen-Z friendly tapi tetap kredibel). "
+        "Gunakan data keuangan di bawah ini untuk menjawab pertanyaan pengguna dengan akurat. "
+        "Jika ditanya perhitungan atau rekomendasi anggaran, berikan analisis konkret berdasarkan data yang ada. "
+        "Format jawaban dengan rapi menggunakan Markdown (bold, bullet points) agar mudah dibaca.\n\n"
+        f"{context_text}"
+    )
+
+    # Ambil model aktif dari environment atau fallback ke daftar model stabil
+    primary_model = os.environ.get('GEMINI_MODEL') or GEMINI_MODEL or 'gemini-3.5-flash-lite'
+    candidate_models = [primary_model, 'gemini-3.1-flash-lite', 'gemini-3.5-flash']
+    # Hapus duplikasi jika ada
+    candidate_models = list(dict.fromkeys(candidate_models))
+
+    req_body = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": f"{system_instruction}\n\nPertanyaan Pengguna:\n{user_prompt}"}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 4096
+        }
+    }
+
+    last_error = None
+    for model_name in candidate_models:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        try:
+            req = urllib.request.Request(
+                gemini_url,
+                data=json.dumps(req_body).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=45) as response:
+                res_json = json.loads(response.read().decode('utf-8'))
+                reply_text = res_json['candidates'][0]['content']['parts'][0]['text']
+                return jsonify({'status': 'success', 'reply': reply_text, 'model_used': model_name})
+        except urllib.error.HTTPError as http_err:
+            err_msg = http_err.read().decode('utf-8')
+            last_error = f"HTTP {http_err.code} ({model_name}): {err_msg}"
+            # Coba model berikutnya jika error 503 (server sibuk) atau 429
+            continue
+        except Exception as e:
+            last_error = f"Error ({model_name}): {str(e)}"
+            continue
+
+    return jsonify({'status': 'error', 'message': f'Gagal menghubungi Gemini: {last_error}'}), 500
 
 def start_server():
     """Menjalankan server Flask di background thread"""
